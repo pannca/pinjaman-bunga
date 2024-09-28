@@ -25,7 +25,7 @@
       max-width: 800px;
       margin: 50px auto;
       padding: 30px;
-      background-color: #fffffff4;
+      background-color: rgba(255, 255, 255, 0.9);
       border-radius: 8px;
       box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
     }
@@ -56,18 +56,20 @@
     }
 
     input[type="text"],
-    input[type="number"] {
+    input[type="number"],
+    select {
       padding: 12px;
       font-size: 1.1rem;
       border: 1px solid #ccc;
       border-radius: 4px;
       width: 100%;
       outline: none;
-      transition: border-color 0.3s;
+      transition: border-color 0.3s ease-in-out;
     }
 
     input[type="text"]:focus,
-    input[type="number"]:focus {
+    input[type="number"]:focus,
+    select:focus {
       border-color: #2248d0;
     }
 
@@ -81,7 +83,7 @@
       cursor: pointer;
       width: 100%;
       margin-top: 10px;
-      transition: background-color 0.3s;
+      transition: background-color 0.3s ease-in-out;
     }
 
     .btn:hover {
@@ -114,6 +116,7 @@
         text-align: center;
         font-weight: 550;
         margin-top: 20px;
+        color: #333;
     }
 
     /* Responsive Styling */
@@ -141,6 +144,13 @@
           <label for="years">Lama Pinjaman (Tahun)</label>
           <input type="number" id="years" placeholder="Masukkan lama pinjaman dalam tahun" min="1" required>
         </div>
+        <div class="form-group">
+          <label for="loan-type">Jenis Bunga</label>
+          <select id="loan-type" required>
+            <option value="majemuk">Bunga Majemuk</option>
+            <option value="tunggal">Bunga Tunggal</option>
+          </select>
+        </div>        
       </div>
       <input type="submit" value="Pinjam" class="btn">
     </form>
@@ -156,55 +166,55 @@
   </div>
 
   <script>
-    // Fungsi untuk menambahkan format ribuan dengan koma
-    function formatRupiah(angka, prefix) {
-      const numberString = angka.replace(/[^,\d]/g, '').toString();
-      const split = numberString.split(',');
-      let sisa = split[0].length % 3;
-      let rupiah = split[0].substr(0, sisa);
-      const ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+    const amountInput = document.getElementById('amount');
 
-      if (ribuan) {
-        const separator = sisa ? '.' : '';
-        rupiah += separator + ribuan.join('.');
-      }
+    // Event listener untuk memformat input jumlah pinjaman
+    amountInput.addEventListener('input', function (e) {
+      let value = amountInput.value;
 
-      rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
-      return prefix === undefined ? rupiah : rupiah ? 'Rp ' + rupiah : '';
-    }
+      // Hapus semua karakter yang bukan angka
+      value = value.replace(/[^,\d]/g, "");
 
-    document.getElementById('amount').addEventListener('input', function(e) {
-      const value = e.target.value;
-      e.target.value = formatRupiah(value, 'Rp');
+      // Tambahkan pemisah ribuan
+      value = new Intl.NumberFormat('id-ID').format(value);
+
+      // Update nilai input
+      amountInput.value = value;
     });
 
     document.getElementById('loan-form').addEventListener('submit', function(e) {
       e.preventDefault();
 
-      // Ambil nilai yang sudah diformat (hapus "Rp" dan koma)
-      const amount = document.getElementById('amount').value.replace(/[^,\d]/g, '');
+      // Hapus koma dari nilai sebelum melakukan perhitungan
+      const amount = amountInput.value.replace(/[^,\d]/g, '');
       const interest = document.getElementById('interest').value;
       const years = document.getElementById('years').value;
+      const loanType = document.getElementById('loan-type').value;
 
-      // Validasi input
       if (amount <= 0 || interest <= 0 || interest > 100 || years <= 0) {
         alert('Silakan masukkan nilai yang valid.');
         return;
       }
 
-      // Hitung pinjaman
       const principal = parseFloat(amount);
-      const calculatedInterest = parseFloat(interest) / 100 / 12;
-      const calculatedPayments = parseFloat(years) * 12;
+      const calculatedInterest = parseFloat(interest) / 100;
+      const calculatedPayments = parseFloat(years);
 
-      const x = Math.pow(1 + calculatedInterest, calculatedPayments);
-      const monthly = (principal * x * calculatedInterest) / (x - 1);
+      let monthly, totalPayment, totalInterest;
+
+      if (loanType === 'majemuk') {
+        const n = 12; 
+        const x = Math.pow(1 + calculatedInterest / n, n * calculatedPayments);
+        monthly = (principal * x * (calculatedInterest / n)) / (x - 1);
+        totalPayment = monthly * calculatedPayments * 12;
+        totalInterest = totalPayment - principal;
+      } else if (loanType === 'tunggal') {
+        totalPayment = principal * (1 + calculatedInterest * calculatedPayments);
+        monthly = totalPayment / (calculatedPayments * 12);
+        totalInterest = totalPayment - principal;
+      }
 
       if (isFinite(monthly)) {
-        const totalPayment = monthly * calculatedPayments;
-        const totalInterest = totalPayment - principal;
-
-        // Tampilkan hasil dengan format Rupiah
         document.getElementById('monthly-payment').textContent = monthly.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
         document.getElementById('total-payment').textContent = totalPayment.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
         document.getElementById('total-interest').textContent = totalInterest.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
